@@ -1,0 +1,23 @@
+{
+  "name": "@the-meta-lang/metax",
+  "module": "index.ts",
+  "type": "module",
+  "bin": {
+    "metax": "./dist/index.js"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/inquirer": "^9.0.7"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^11.1.0",
+    "inquirer": "^9.2.12",
+    "node-typewriter": "^0.0.2",
+    "ora": "^8.0.1",
+    "simple-git": "^3.22.0"
+  }
+}

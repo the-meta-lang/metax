@@ -1,5 +1,5 @@
 asset: release/metax.tar.gz
-tap: my-org/homebrew-app/app.rb
+tap: meta-lang/homebrew-metax/app.rb
 template: |
   class Metax < Formula
     desc     "$REPO_DESCRIPTION"

@@ -4,18 +4,25 @@ import { simpleGit } from 'simple-git';
 import { program } from "./shared";
 import chalk from "chalk";
 import inquirer from "inquirer";
-import { randomVerbAndNoun } from "./randomVerbAndNoun";
+import { randomVerbAndNoun } from "./utils/randomVerbAndNoun";
 import * as fs from "fs";
 import * as path from "path";
 import { templates } from './templates';
 import ora from 'ora';
+import os from "node:os";
+import { readableStreamToText, spawn, type Subprocess } from 'bun';
 
 const pwd = process.cwd();
 
 program
 	.name("metax")
 	.description("CLI for the META Compiler writing library")
-	.version("0.1.0");
+	.version("0.1.0")
+
+if (os.platform() === "win32") {
+	// Add a warning to the help text if the user is running Windows
+	program.addHelpText("beforeAll", `${chalk.bgYellow("Warning")} Please note you are running in Windows Compatibility mode. Not all functionality has been fully tested and you may encounter errors. If you do, please report them to us by creating a new Issue on GitHub.\n`)
+}
 
 const primaryColor = chalk.bgHex("#dc8850").bold;
 const accentColor = chalk.bgHex("#ef9995").bold.black;
@@ -177,7 +184,7 @@ program
 	)
 
 program
-	.command("run <ASSEMBLER> <FILE>")
+	.command("run <FILE>")
 	.description("Takes in a METALS or x86 assembler and compiles the specified file into a compiler executable")
 	.option(
 		"-i, --x86",
@@ -190,8 +197,8 @@ program
 		""
 	)
 	.option(
-		"--object-file",
-		"Whether or not the assembler was provided as a compiled object file instead of a source file, this will skip compilation and linking.",
+		"--force",
+		"Overwrite the output file if it already exists",
 		false
 	)
 	.option(
@@ -201,12 +208,12 @@ program
 	)
 	.option(
 		"-d, --debug",
-		"Whether or not to compile in debug mode",
+		"Run the compiler in debug mode",
 		false
 	)
 	.option(
 		"-c, --clean",
-		"Whether or not to clean up temporary files after compilation",
+		"Clean up temporary files after compilation",
 		false
 	)
 	.option(
@@ -228,6 +235,41 @@ program
 		"--vm",
 		"Will spin up a local VM to run the compiler in, this is especially useful for testing, a web interface will be launched on http://localhost to visualize register and memory allocation. Please note that this will automatically enable the --debug flag.",
 	)
+	.action(async (file: string, options) => {
+		// Check if the file exists
+		if (!fs.existsSync(file))
+			throw new Error(`File ${file} does not exist`);
+
+		if (options.output && !path.isAbsolute(options.output)) {
+			options.output = path.join(pwd, options.output);
+
+			// Check if the output file already exists
+			if (fs.existsSync(options.output) && !options.force) {
+				throw new Error(`Warning: Output file ${options.output} already exists. Use --force to overwrite it.`);
+			}
+		}
+
+		let filePathCompiler = path.join(pwd, options.compiler);
+
+		if (options.compiler === "builtin" || options.compiler === "") {
+			filePathCompiler = path.join(import.meta.dir, "../bin/meta.bin");
+		}
+
+		// Check if the compiler is valid
+		if (!fs.existsSync(filePathCompiler)) {
+			throw new Error(`Compiler ${options.compiler} does not exist`);
+		}
+
+		// Compile the file
+		const subprocess = spawn({ cmd: [filePathCompiler, file], stdout: "pipe" })
+		const output = await readableStreamToText(subprocess.stdout);
+
+		if (options.output) {
+			fs.writeFileSync(options.output, output);
+		} else {
+			console.log(output);
+		}
+	})
 
 program
 	.command("test")
@@ -262,5 +304,77 @@ program
 		"Will make use of parallelized workers to run multiple test using <NUMBER> of processes",
 		"1"
 	)
+
+program.
+	command("cascade [FILES...]")
+	.description("Creates a cascading compiler toolchain, this is especially useful when trying to implement new features or optimizations in subimplementations of the compiler itself. It will compile all input files from left to right if any of them change always taking the newly built compiler of the previous iteration.")
+	.option("-i, --include <path>",
+	"The include file path to use for NASM", "")
+	.action(async (args, options) => {
+		console.log("Compiling in cascade mode");
+		console.log("Spawning compiler toolchain...")
+		console.log("Listening for changes...")
+
+		// Check if every file exists
+		args.forEach((file: string) => {
+			if (!path.isAbsolute(file))
+				file = path.join(pwd, file);
+
+			if (!fs.existsSync(file))
+				throw new Error(`File ${file} does not exist`);
+
+			// Attach a watcher to the file
+			fs.watch(file, { recursive: false }, async (eventType, filename) => {
+				console.log(`File ${filename} has been changed`);
+				await cascadeCompile();
+			});
+		})
+
+		if (options.include && !path.isAbsolute(options.include)) {
+			options.include = path.join(pwd, options.include);
+		}
+
+		const cascadeCompile = async () => {
+			// Loop through all files and compile them taking the newly built compiler of the previous iteration
+			for (let i = 1; i < args.length; i++) {
+				const compiler = args[i - 1];
+				const file = args[i];
+				const subprocess = spawn({ cmd: ["./metax", "run", file, "--compiler", compiler], stdout: "pipe" })
+				const output = await readableStreamToText(subprocess.stdout);
+
+				// Write the output to an intermediate .asm file
+				fs.writeFileSync(`${file}.asm`, output);
+
+				// Compile the .asm file
+				const nasm = await command(["nasm", "-F", "dwarf", "-g", "-f", "elf32", "-i", options.include, "-o", `${file}.o`, `${file}.asm`])
+				if (nasm.exitCode !== 0) {
+					console.log(`Error: ${nasm.stderr}`);
+					return;
+				}
+
+				// Link the .o file
+				const ld = await command(["ld", "-m", "elf_i386", "-o", `${file}.bin`, `${file}.o`]);
+				
+				if (ld.exitCode !== 0) {
+					console.log(`Error: ${ld.stderr}`);
+					return;
+				}
+
+				// Remove the intermediate .o file
+				fs.rmSync(`${file}.o`);
+
+				// Update the compiler for the next iteration
+				args[i] = `${file}.bin`;
+			}
+		}
+	})
+
+	async function command(command: string[]): Promise<Subprocess> {
+		return new Promise((resolve, reject) => {
+			const subprocess = spawn(command, { stdout: "pipe", onExit: () => {
+				resolve(subprocess)
+			} });
+		})
+	}
 
 program.parse();

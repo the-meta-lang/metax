@@ -1,10 +1,16 @@
 {
-  "name": "@the-meta-lang/metax",
+  "name": "@meta-lang/metax",
+	"description": "Official CLI Tool for the META Compiler Toolchain.",
+	"version": "0.0.1",
   "module": "index.ts",
   "type": "module",
   "bin": {
-    "metax": "./dist/index.js"
+    "metax": "./metax"
   },
+	"scripts": {
+		"compile": "bun build ./src/index.ts --compile --outfile ./metax",
+		"bundle": "bun run compile && "
+	},
   "devDependencies": {
     "@types/bun": "latest",
     "@types/inquirer": "^9.0.7"

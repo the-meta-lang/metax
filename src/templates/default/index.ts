@@ -1,7 +1,7 @@
 import type { Ora } from "ora";
 import path from "path";
 import fs from "fs";
-import { format } from "../../format";
+import { format } from "../../utils/format";
 
 export default async (dir: string, options: { dir: string, template: string, deps: boolean, git: boolean }, spinner: Ora) => {
 

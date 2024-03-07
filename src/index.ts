@@ -11,6 +11,8 @@ import { templates } from './templates';
 import ora from 'ora';
 import os from "node:os";
 import { readableStreamToText, spawn, type Subprocess } from 'bun';
+import "./lib/cascade/index";
+import "./lib/build/index";
 
 const pwd = process.cwd();
 
@@ -175,15 +177,6 @@ program
 	});
 
 program
-	.command("build")
-	.description("Builds your project according to the meta-config.json file")
-	.option(
-		"--no-emit",
-		"Whether or not to emit the compiled files",
-		false
-	)
-
-program
 	.command("run <FILE>")
 	.description("Takes in a METALS or x86 assembler and compiles the specified file into a compiler executable")
 	.option(
@@ -305,76 +298,7 @@ program
 		"1"
 	)
 
-program.
-	command("cascade [FILES...]")
-	.description("Creates a cascading compiler toolchain, this is especially useful when trying to implement new features or optimizations in subimplementations of the compiler itself. It will compile all input files from left to right if any of them change always taking the newly built compiler of the previous iteration.")
-	.option("-i, --include <path>",
-	"The include file path to use for NASM", "")
-	.action(async (args, options) => {
-		console.log("Compiling in cascade mode");
-		console.log("Spawning compiler toolchain...")
-		console.log("Listening for changes...")
 
-		// Check if every file exists
-		args.forEach((file: string) => {
-			if (!path.isAbsolute(file))
-				file = path.join(pwd, file);
 
-			if (!fs.existsSync(file))
-				throw new Error(`File ${file} does not exist`);
-
-			// Attach a watcher to the file
-			fs.watch(file, { recursive: false }, async (eventType, filename) => {
-				console.log(`File ${filename} has been changed`);
-				await cascadeCompile();
-			});
-		})
-
-		if (options.include && !path.isAbsolute(options.include)) {
-			options.include = path.join(pwd, options.include);
-		}
-
-		const cascadeCompile = async () => {
-			// Loop through all files and compile them taking the newly built compiler of the previous iteration
-			for (let i = 1; i < args.length; i++) {
-				const compiler = args[i - 1];
-				const file = args[i];
-				const subprocess = spawn({ cmd: ["./metax", "run", file, "--compiler", compiler], stdout: "pipe" })
-				const output = await readableStreamToText(subprocess.stdout);
-
-				// Write the output to an intermediate .asm file
-				fs.writeFileSync(`${file}.asm`, output);
-
-				// Compile the .asm file
-				const nasm = await command(["nasm", "-F", "dwarf", "-g", "-f", "elf32", "-i", options.include, "-o", `${file}.o`, `${file}.asm`])
-				if (nasm.exitCode !== 0) {
-					console.log(`Error: ${nasm.stderr}`);
-					return;
-				}
-
-				// Link the .o file
-				const ld = await command(["ld", "-m", "elf_i386", "-o", `${file}.bin`, `${file}.o`]);
-				
-				if (ld.exitCode !== 0) {
-					console.log(`Error: ${ld.stderr}`);
-					return;
-				}
-
-				// Remove the intermediate .o file
-				fs.rmSync(`${file}.o`);
-
-				// Update the compiler for the next iteration
-				args[i] = `${file}.bin`;
-			}
-		}
-	})
-
-	async function command(command: string[]): Promise<Subprocess> {
-		return new Promise((resolve, reject) => {
-			const subprocess = spawn(command, { stdout: "pipe", onExit: () => {
-				resolve(subprocess)
-			} });
-		})
-	}
 
 program.parse();

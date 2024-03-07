@@ -1,0 +1,9 @@
+{
+	"compilerOptions": {
+		"out": "main",
+		"entry": "./meta/main.meta",
+		"debug": true,
+		"verbose": 2,
+		"target": "metals"
+	}
+}

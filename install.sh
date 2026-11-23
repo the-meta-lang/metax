@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
+# Fail immediately if any errors occur
 set -euo pipefail
 
 if [[ ${OS:-} = Windows_NT ]]; then
-    echo 'error: Please install metax using Windows Subsystem for Linux'
+    echo '[ERROR] Please install metax using Windows Subsystem for Linux'
     exit 1
 fi
 
@@ -33,7 +34,7 @@ if [[ -t 1 ]]; then
 fi
 
 error() {
-    echo -e "${Red}error${Color_Off}:" "$@" >&2
+    echo -e "${Red}[ERROR]${Color_Off}:" "$@" >&2
     exit 1
 }
 
@@ -50,7 +51,7 @@ success() {
 }
 
 command -v unzip >/dev/null ||
-    error 'unzip is required to install metax (see: https://metax.sh/docs/installation#macos-and-linux)'
+    error 'unzip is required to install metax'
 
 if [[ $# -gt 2 ]]; then
     error 'Too many arguments, only 2 are allowed. The first can be a specific tag of metax to install. (e.g. "metax-v0.1.4") The second can be a build variant of metax to install. (e.g. "debug-info")'
@@ -132,7 +133,7 @@ success "metax was installed successfully to $Bold_Green$(tildify "$exe")"
 
 if command -v metax >/dev/null; then
     # Install completions, but we don't care if it fails
-    IS_metax_AUTO_UPDATE=true $exe completions &>/dev/null || :
+    IS_METAX_AUTO_UPDATE=true $exe completions &>/dev/null || :
 
     echo "Run 'metax --help' to get started"
     exit
@@ -152,7 +153,7 @@ echo
 case $(basename "$SHELL") in
 fish)
     # Install completions, but we don't care if it fails
-    IS_metax_AUTO_UPDATE=true SHELL=fish $exe completions &>/dev/null || :
+    IS_METAX_AUTO_UPDATE=true SHELL=fish $exe completions &>/dev/null || :
 
     commands=(
         "set --export $install_env $quoted_install_dir"
@@ -184,7 +185,7 @@ fish)
     ;;
 zsh)
     # Install completions, but we don't care if it fails
-    IS_metax_AUTO_UPDATE=true SHELL=zsh $exe completions &>/dev/null || :
+    IS_METAX_AUTO_UPDATE=true SHELL=zsh $exe completions &>/dev/null || :
 
     commands=(
         "export $install_env=$quoted_install_dir"
@@ -216,7 +217,7 @@ zsh)
     ;;
 bash)
     # Install completions, but we don't care if it fails
-    IS_metax_AUTO_UPDATE=true SHELL=bash $exe completions &>/dev/null || :
+    IS_METAX_AUTO_UPDATE=true SHELL=bash $exe completions &>/dev/null || :
 
     commands=(
         "export $install_env=$quoted_install_dir"

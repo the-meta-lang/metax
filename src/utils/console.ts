@@ -4,9 +4,11 @@ export const info = (message: string) => {
 	console.log(`${chalk.bgBlue("[INFO]")} ${message}`);
 }
 
-export const error = (message: string) => {
+export const error = (message: string, terminate: boolean = true) => {
 	console.log(`${chalk.bgRed("[ERROR]")} ${message}`);
-	process.exit(1);
+	if (terminate) {
+		process.exit(1);
+	}
 }
 
 export const warn = (message: string) => {

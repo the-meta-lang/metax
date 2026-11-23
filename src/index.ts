@@ -13,6 +13,7 @@ import os from "node:os";
 import { readableStreamToText, spawn, type Subprocess } from 'bun';
 import "./lib/cascade/index";
 import "./lib/build/index";
+import "./lib/test/index";
 
 const pwd = process.cwd();
 
@@ -263,40 +264,6 @@ program
 			console.log(output);
 		}
 	})
-
-program
-	.command("test")
-	.description("Runs all specified tests for your project according to the meta-config.json file.")
-	.option(
-		"-w, --watch",
-		"Will watch for changes and re-run tests when a file changes",
-		false
-	)
-	.option(
-		"-c, --coverage",
-		"Will generate a coverage report",
-		false
-	)
-	.option(
-		"-t, --timeout <NUMBER>",
-		"The timeout for each test in milliseconds",
-		"5000"
-	)
-	.option(
-		"-b, --bail <NUMBER>",
-		"Will exit a test suite after <NUMBER> of failures",
-		"1"
-	)
-	.option(
-		"-p, --pattern <STRING>",
-		"Will only run tests that match the specified pattern",
-		""
-	)
-	.option(
-		"--parallel <NUMBER>",
-		"Will make use of parallelized workers to run multiple test using <NUMBER> of processes",
-		"1"
-	)
 
 
 

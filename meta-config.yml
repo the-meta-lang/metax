@@ -1,0 +1,5 @@
+testOptions:
+  reporter: "junit"
+  reporterOutput: "test-results.xml"
+  testDir: "./test"
+  verbose: "all"
